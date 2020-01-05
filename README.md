@@ -1,1 +1,2 @@
 # Unity Procedural Terrain Generation
+This project is heavily based on Sebastian Lague's procedural terrain from his video series on procedural terrain generation in Unity [(Github repo link here)](https://github.com/SebLague/Procedural-Landmass-Generation). Thus far I've commented and reformatted a lot of the original code so that it's easier for me to use, while also removing or disabling some of the stuff I'm not using. I've also added a fairly basic RTS-style camera to the project as I find it to be a preferable tool for navigating the terrain in builds.
