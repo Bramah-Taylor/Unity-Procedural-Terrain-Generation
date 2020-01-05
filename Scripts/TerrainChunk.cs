@@ -14,9 +14,7 @@ public class TerrainChunk
 	MeshFilter meshFilter;
 	MeshCollider meshCollider;
 
-	LODInfo[] detailLevels;
-	LODMesh[] lodMeshes;
-	int colliderLODIndex;
+    TerrainMesh terrainMesh;
 
 	HeightMap heightMap;
 	bool heightMapReceived;
@@ -28,16 +26,15 @@ public class TerrainChunk
 	MeshSettings meshSettings;
 	Transform viewer;
 
-	public TerrainChunk(Vector2 coord, HeightMapSettings heightMapSettings, MeshSettings meshSettings, LODInfo[] detailLevels, int colliderLODIndex, Transform parent, Transform viewer, Material material)
+	public TerrainChunk(Vector2 coord, HeightMapSettings heightMapSettings, MeshSettings meshSettings, float visibleDstThreshold, Transform parent, Transform viewer, Material material)
     {
 		this.coord = coord;
-		this.detailLevels = detailLevels;
-		this.colliderLODIndex = colliderLODIndex;
 		this.heightMapSettings = heightMapSettings;
 		this.meshSettings = meshSettings;
 		this.viewer = viewer;
+        maxViewDst = visibleDstThreshold;
 
-		sampleCentre = coord * meshSettings.meshWorldSize / meshSettings.meshScale;
+        sampleCentre = coord * meshSettings.meshWorldSize / meshSettings.meshScale;
 		Vector2 position = coord * meshSettings.meshWorldSize ;
 		bounds = new Bounds(position,Vector2.one * meshSettings.meshWorldSize);
 
@@ -51,19 +48,9 @@ public class TerrainChunk
 		meshObject.transform.parent = parent;
 		SetVisible(false);
 
-		lodMeshes = new LODMesh[detailLevels.Length];
-		for (int i = 0; i < detailLevels.Length; i++)
-        {
-			lodMeshes[i] = new LODMesh(detailLevels[i].lod);
-			lodMeshes[i].updateCallback += UpdateTerrainChunk;
-			if (i == colliderLODIndex)
-            {
-				lodMeshes[i].updateCallback += UpdateCollisionMesh;
-			}
-		}
-
-		maxViewDst = detailLevels[detailLevels.Length - 1].visibleDstThreshold;
-
+        terrainMesh = new TerrainMesh();
+        terrainMesh.updateCallback += UpdateTerrainChunk;
+		terrainMesh.updateCallback += UpdateCollisionMesh;
 	}
 
 	public void Load()
@@ -103,9 +90,9 @@ public class TerrainChunk
                 // LOD stuff
 				int lodIndex = 0;
 
-				for (int i = 0; i < detailLevels.Length - 1; i++)
+				for (int i = 0; i < 1; i++)
                 {
-					if (viewerDstFromNearestEdge > detailLevels[i].visibleDstThreshold)
+					if (viewerDstFromNearestEdge > maxViewDst)
                     {
 						lodIndex = i + 1;
 					}
@@ -117,7 +104,7 @@ public class TerrainChunk
 
 				if (lodIndex != previousLODIndex)
                 {
-					LODMesh lodMesh = lodMeshes[lodIndex];
+                    TerrainMesh lodMesh = terrainMesh;
 					if (lodMesh.hasMesh)
                     {
 						previousLODIndex = lodIndex;
@@ -147,19 +134,19 @@ public class TerrainChunk
         {
 			float sqrDstFromViewerToEdge = bounds.SqrDistance(viewerPosition);
 
-			if (sqrDstFromViewerToEdge < detailLevels[colliderLODIndex].sqrVisibleDstThreshold)
+			if (sqrDstFromViewerToEdge < maxViewDst)
             {
-				if (!lodMeshes[colliderLODIndex].hasRequestedMesh)
+				if (!terrainMesh.hasRequestedMesh)
                 {
-					lodMeshes[colliderLODIndex].RequestMesh(heightMap, meshSettings);
+                    terrainMesh.RequestMesh(heightMap, meshSettings);
 				}
 			}
 
 			if (sqrDstFromViewerToEdge < colliderGenerationDistanceThreshold * colliderGenerationDistanceThreshold)
             {
-				if (lodMeshes[colliderLODIndex].hasMesh)
+				if (terrainMesh.hasMesh)
                 {
-					meshCollider.sharedMesh = lodMeshes[colliderLODIndex].mesh;
+					meshCollider.sharedMesh = terrainMesh.mesh;
 					hasSetCollider = true;
 				}
 			}
@@ -177,17 +164,15 @@ public class TerrainChunk
 	}
 }
 
-class LODMesh
+class TerrainMesh
 {
 	public Mesh mesh;
 	public bool hasRequestedMesh;
 	public bool hasMesh;
-	int lod;
 	public event System.Action updateCallback;
 
-	public LODMesh(int lod)
+	public TerrainMesh()
     {
-		this.lod = lod;
 	}
 
 	void OnMeshDataReceived(object meshDataObject)
@@ -202,7 +187,7 @@ class LODMesh
     {
 		hasRequestedMesh = true;
         // Pass in lambda as function object to preserve function parameters
-        ThreadedDataRequester.RequestData(() => MeshGenerator.GenerateTerrainMesh(heightMap.values, meshSettings, lod), OnMeshDataReceived);
+        ThreadedDataRequester.RequestData(() => MeshGenerator.GenerateTerrainMesh(heightMap.values, meshSettings), OnMeshDataReceived);
 	}
 
 }

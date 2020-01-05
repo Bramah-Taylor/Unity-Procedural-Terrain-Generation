@@ -6,7 +6,6 @@ using System.Collections;
 public class HeightMapSettings : UpdatableData
 {
 	public NoiseSettings noiseSettings;
-	public bool useFalloff;                 // Primitive island generation method
 	public float heightMultiplier;
 	public AnimationCurve heightCurve;
 
@@ -33,5 +32,4 @@ public class HeightMapSettings : UpdatableData
 		base.OnValidate();
 	}
 	#endif
-
 }
